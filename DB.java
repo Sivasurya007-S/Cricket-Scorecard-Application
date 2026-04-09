@@ -1,206 +1,177 @@
-// File: DB.java
 package cric;
 
 import java.sql.*;
-import java.util.Objects;
 
 public class DB {
 
-    // ⚙️ Adjust if your MySQL user/pass differ
-    private static final String URL  = "jdbc:mysql://localhost:3306/cricket_app?useSSL=false&serverTimezone=UTC";
-    private static final String USER = "root";
-    private static final String PASS = "dinesh007";
+    // 🔹 Get connection
+    
+    public static Connection get() {
+    try {
+        Class.forName("org.sqlite.JDBC");
+        return DriverManager.getConnection("jdbc:sqlite:cricket.db");
+    } catch (Exception e) {
+        e.printStackTrace();
+        return null;
+    }
+}
 
-    static {
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            // Create any missing tables we rely on (idempotent)
-            initSchema();
-            System.out.println("✅ MySQL driver loaded & schema ensured.");
+    // 🔹 Create tables
+    public static void init() {
+        try (Connection conn = get(); Statement stmt = conn.createStatement()) {
+
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS match_session (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, overs INTEGER)");
+
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS batting_scorecard (" +
+                    "innings INTEGER, player TEXT, runs INTEGER, balls INTEGER, fours INTEGER, sixes INTEGER, out TEXT)");
+
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS bowling_scorecard (" +
+                    "innings INTEGER, player TEXT, balls INTEGER, maidens INTEGER, runs INTEGER, wickets INTEGER)");
+
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS ball_by_ball (" +
+                    "session_id INTEGER, innings INTEGER, over_no INTEGER, ball_no INTEGER," +
+                    "batsman TEXT, bowler TEXT, runs INTEGER, extra TEXT, wicket TEXT)");
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static Connection get() throws SQLException {
-        return DriverManager.getConnection(URL, USER, PASS);
-    }
-
-    /** Ensures auxiliary tables & constraints we reference exist. */
-    private static void initSchema() {
-        try (Connection c = get(); Statement st = c.createStatement()) {
-            st.executeUpdate("""
-                CREATE TABLE IF NOT EXISTS match_session (
-                  id INT AUTO_INCREMENT PRIMARY KEY,
-                  overs INT NOT NULL,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """);
-
-            st.executeUpdate("""
-                CREATE TABLE IF NOT EXISTS batting_scorecard (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    innings_no INT NOT NULL,
-                    player VARCHAR(100) NOT NULL,
-                    runs INT NOT NULL DEFAULT 0,
-                    balls INT NOT NULL DEFAULT 0,
-                    fours INT NOT NULL DEFAULT 0,
-                    sixes INT NOT NULL DEFAULT 0,
-                    out_desc VARCHAR(100) NOT NULL DEFAULT 'not out',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE KEY unique_batter (innings_no, player)
-                )
-            """);
-
-            st.executeUpdate("""
-                CREATE TABLE IF NOT EXISTS bowling_scorecard (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    innings_no INT NOT NULL,
-                    bowler VARCHAR(100) NOT NULL,
-                    balls INT NOT NULL DEFAULT 0,
-                    maidens INT NOT NULL DEFAULT 0,
-                    runs INT NOT NULL DEFAULT 0,
-                    wickets INT NOT NULL DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE KEY unique_bowler (innings_no, bowler)
-                )
-            """);
-
-            st.executeUpdate("""
-                CREATE TABLE IF NOT EXISTS ball_by_ball (
-                  id INT AUTO_INCREMENT PRIMARY KEY,
-                  match_id INT,
-                  innings_number INT,
-                  over_number INT,
-                  ball_number INT,
-                  batsman VARCHAR(100),
-                  bowler VARCHAR(100),
-                  runs INT DEFAULT 0,
-                  extra_type VARCHAR(20),
-                  wicket VARCHAR(10),
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """);
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    // 🆕 Create a new match session and return its id (no UI change in callers)
+    // 🔹 Create match session
     public static int createMatchSession(int overs) {
-        String sql = "INSERT INTO match_session (overs) VALUES (?)";
-        try (Connection c = get();
-             PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = get();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO match_session(overs) VALUES(?)",
+                     Statement.RETURN_GENERATED_KEYS)) {
+
             ps.setInt(1, overs);
             ps.executeUpdate();
-            try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        } catch (SQLException e) {
-            System.err.println("❌ createMatchSession failed: " + e.getMessage());
+
+            ResultSet rs = ps.getGeneratedKeys();
+            if (rs.next()) return rs.getInt(1);
+
+        } catch (Exception e) {
             e.printStackTrace();
         }
-        return 0;
+        return -1;
     }
 
-    // 🧾 Insert or update batting (by innings_no + player)
-    public static void upsertBatting(int inningsNo, String player, int runs, int balls, int fours, int sixes, String outDesc) {
-        Objects.requireNonNull(player, "player");
-        String sql = """
-            INSERT INTO batting_scorecard (innings_no, player, runs, balls, fours, sixes, out_desc)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-              runs = VALUES(runs),
-              balls = VALUES(balls),
-              fours = VALUES(fours),
-              sixes = VALUES(sixes),
-              out_desc = VALUES(out_desc)
-        """;
-        try (Connection c = get(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, inningsNo);
-            ps.setString(2, player);
-            ps.setInt(3, runs);
-            ps.setInt(4, balls);
-            ps.setInt(5, fours);
-            ps.setInt(6, sixes);
-            ps.setString(7, (outDesc == null || outDesc.isBlank()) ? "not out" : outDesc);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            System.err.println("❌ upsertBatting failed: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
+    // 🔹 Insert ball
+    public static void insertBall(int sessionId, int innings, int over, int ball,
+                                  String batsman, String bowler, int runs,
+                                  String extra, String wicket) {
 
-    // 🎯 Insert or update bowling (by innings_no + bowler)
-    public static void upsertBowling(int inningsNo, String bowler, int balls, int maidens, int runs, int wkts) {
-        Objects.requireNonNull(bowler, "bowler");
-        String sql = """
-            INSERT INTO bowling_scorecard (innings_no, bowler, balls, maidens, runs, wickets)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-              balls = VALUES(balls),
-              maidens = VALUES(maidens),
-              runs = VALUES(runs),
-              wickets = VALUES(wickets)
-        """;
-        try (Connection c = get(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, inningsNo);
-            ps.setString(2, bowler);
-            ps.setInt(3, balls);
-            ps.setInt(4, maidens);
-            ps.setInt(5, runs);
-            ps.setInt(6, wkts);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            System.err.println("❌ upsertBowling failed: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
+        try (Connection conn = get();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO ball_by_ball VALUES(?,?,?,?,?,?,?,?,?)")) {
 
-    // 🟢 Ball-by-ball logging
-    public static void insertBall(int matchId, int inningsNumber, int overNumber, int ballNumber,
-                                  String batsman, String bowler, int runs, String extraType, String wicketFlag) {
-        String sql = """
-            INSERT INTO ball_by_ball
-            (match_id, innings_number, over_number, ball_number, batsman, bowler, runs, extra_type, wicket)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """;
-        try (Connection c = get(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, matchId);
-            ps.setInt(2, inningsNumber);
-            ps.setInt(3, overNumber);
-            ps.setInt(4, ballNumber);
+            ps.setInt(1, sessionId);
+            ps.setInt(2, innings);
+            ps.setInt(3, over);
+            ps.setInt(4, ball);
             ps.setString(5, batsman);
             ps.setString(6, bowler);
             ps.setInt(7, runs);
-            ps.setString(8, extraType);
-            ps.setString(9, wicketFlag);
+            ps.setString(8, extra);
+            ps.setString(9, wicket);
+
             ps.executeUpdate();
-        } catch (SQLException e) {
-            System.err.println("❌ insertBall failed: " + e.getMessage());
+
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    // 🔙 Delete the last ball logged for this match & innings
-    public static void deleteLastBall(int matchId, int inningsNumber) {
-        String sql = """
-            DELETE FROM ball_by_ball
-            WHERE id = (
-              SELECT id FROM (
-                SELECT id FROM ball_by_ball
-                WHERE match_id=? AND innings_number=?
-                ORDER BY id DESC LIMIT 1
-              ) t
-            )
-        """;
-        try (Connection c = get(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, matchId);
-            ps.setInt(2, inningsNumber);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            System.err.println("❌ deleteLastBall failed: " + e.getMessage());
+    // 🔹 Insert/Update Batting
+    public static void upsertBatting(int innings, String player, int runs,
+                                    int balls, int fours, int sixes, String out) {
+
+        try (Connection conn = get()) {
+
+            PreparedStatement check = conn.prepareStatement(
+                    "SELECT * FROM batting_scorecard WHERE innings=? AND player=?");
+            check.setInt(1, innings);
+            check.setString(2, player);
+
+            ResultSet rs = check.executeQuery();
+
+            if (rs.next()) {
+                PreparedStatement update = conn.prepareStatement(
+                        "UPDATE batting_scorecard SET runs=?, balls=?, fours=?, sixes=?, out=? WHERE innings=? AND player=?");
+
+                update.setInt(1, runs);
+                update.setInt(2, balls);
+                update.setInt(3, fours);
+                update.setInt(4, sixes);
+                update.setString(5, out);
+                update.setInt(6, innings);
+                update.setString(7, player);
+
+                update.executeUpdate();
+
+            } else {
+                PreparedStatement insert = conn.prepareStatement(
+                        "INSERT INTO batting_scorecard VALUES(?,?,?,?,?,?,?)");
+
+                insert.setInt(1, innings);
+                insert.setString(2, player);
+                insert.setInt(3, runs);
+                insert.setInt(4, balls);
+                insert.setInt(5, fours);
+                insert.setInt(6, sixes);
+                insert.setString(7, out);
+
+                insert.executeUpdate();
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 🔹 Insert/Update Bowling
+    public static void upsertBowling(int innings, String player, int balls,
+                                    int maidens, int runs, int wickets) {
+
+        try (Connection conn = get()) {
+
+            PreparedStatement check = conn.prepareStatement(
+                    "SELECT * FROM bowling_scorecard WHERE innings=? AND player=?");
+            check.setInt(1, innings);
+            check.setString(2, player);
+
+            ResultSet rs = check.executeQuery();
+
+            if (rs.next()) {
+                PreparedStatement update = conn.prepareStatement(
+                        "UPDATE bowling_scorecard SET balls=?, maidens=?, runs=?, wickets=? WHERE innings=? AND player=?");
+
+                update.setInt(1, balls);
+                update.setInt(2, maidens);
+                update.setInt(3, runs);
+                update.setInt(4, wickets);
+                update.setInt(5, innings);
+                update.setString(6, player);
+
+                update.executeUpdate();
+
+            } else {
+                PreparedStatement insert = conn.prepareStatement(
+                        "INSERT INTO bowling_scorecard VALUES(?,?,?,?,?,?)");
+
+                insert.setInt(1, innings);
+                insert.setString(2, player);
+                insert.setInt(3, balls);
+                insert.setInt(4, maidens);
+                insert.setInt(5, runs);
+                insert.setInt(6, wickets);
+
+                insert.executeUpdate();
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
