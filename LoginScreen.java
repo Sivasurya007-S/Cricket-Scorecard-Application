@@ -12,14 +12,18 @@ public class LoginScreen extends JFrame {
     private JPasswordField passwordField;
     private Connection connection;
 
-   public LoginScreen() {
+    public LoginScreen() {
+
+        // Init DB
+        DB.init(); // ensure tables exist
+        createUsersTable(); // create users table if missing
 
         setTitle("🏏 Cricket App Login");
         setSize(550, 800);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        // --------- THEME (Blue Royal) ----------
+        // --------- THEME COLORS (from old page) ----------
         Color gradientTop    = new Color(12, 24, 60);
         Color gradientBottom = new Color(26, 64, 160);
         Color glassBg        = new Color(255, 255, 255,26);
@@ -55,7 +59,6 @@ public class LoginScreen extends JFrame {
                 g2.setStroke(new BasicStroke(2f));
                 g2.setColor(glassStroke);
                 g2.drawRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 22, 22);
-
                 g2.dispose();
             }
         };
@@ -127,9 +130,7 @@ public class LoginScreen extends JFrame {
 
         // Actions
         loginBtn.addActionListener(e -> handleLogin());
-
         guestBtn.addActionListener(e -> openMainApp("Guest"));
-
         registerBtn.addActionListener(e -> showRegisterDialog());
 
         setVisible(true);
@@ -152,15 +153,19 @@ public class LoginScreen extends JFrame {
         return b;
     }
 
-    // ---------- DB ----------
+    private void createUsersTable() {
+        try (Connection conn = DB.get();
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS users (" +
+                    "email TEXT PRIMARY KEY, password TEXT)");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void connectDatabase() {
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            connection = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/cricket_app",
-                    "root",
-                    "dinesh007"
-            );
+            connection = DB.get();
             System.out.println("✅ DB Connected");
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "DB Error: " + e.getMessage());
@@ -191,28 +196,24 @@ public class LoginScreen extends JFrame {
         }
     }
 
-    // ---------- REGISTER DIALOG ----------
     private void showRegisterDialog() {
-
         JDialog dialog = new JDialog(this, "Create Account", true);
         dialog.setSize(480, 450);
         dialog.setLocationRelativeTo(this);
-        dialog.setUndecorated(true);
 
+        // ---------- PANEL WITH OLD COLORS ----------
         Color gradientTop    = new Color(12, 24, 60);
         Color gradientBottom = new Color(26, 64, 160);
-        Color glassBg        = new Color(255, 255, 255, 26);
+        Color glassBg        = new Color(255, 255, 255,26);
         Color glassStroke    = new Color(255, 255, 255, 80);
+        Color subText        = new Color(185, 205 , 225);
         Color accent         = new Color(52, 92, 255);
         Color hover          = new Color(85, 133, 255);
-        Color subText        = new Color(185, 205, 255);
 
         JPanel root = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-
                 g2.setPaint(new GradientPaint(0, 0, gradientTop, 0, getHeight(), gradientBottom));
                 g2.fillRect(0, 0, getWidth(), getHeight());
             }
@@ -224,38 +225,18 @@ public class LoginScreen extends JFrame {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
-
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                g2.setColor(new Color(0, 0, 0, 90));
-                g2.fillRoundRect(5, 5, getWidth() - 10, getHeight() - 10, 26, 26);
-
                 g2.setColor(glassBg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 26, 26);
-
+                g2.fillRoundRect(0,0,getWidth(),getHeight(),26,26);
+                g2.setStroke(new BasicStroke(2f));
                 g2.setColor(glassStroke);
-                g2.setStroke(new BasicStroke(2));
-                g2.drawRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 22, 22);
+                g2.drawRoundRect(1,1,getWidth()-2,getHeight()-2,22,22);
             }
         };
-
         card.setOpaque(false);
-        card.setPreferredSize(new Dimension(400, 350));
-        GridBagConstraints gbc = new GridBagConstraints();
-        root.add(card, gbc);
+        card.setPreferredSize(new Dimension(400,350));
+        root.add(card, new GridBagConstraints());
 
-        // ✅ CLOSE BUTTON ADDED HERE
-        JButton closeBtn = new JButton("✖");
-        closeBtn.setBounds(350, 15, 30, 30);
-        closeBtn.setFocusPainted(false);
-        closeBtn.setBorder(null);
-        closeBtn.setBackground(new Color(255, 255, 255, 40));
-        closeBtn.setForeground(Color.WHITE);
-        closeBtn.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        closeBtn.addActionListener(e -> dialog.dispose());
-        card.add(closeBtn);
-
-        // --- HEADER ---
+        // HEADER
         JLabel title = new JLabel("🆕 Create Account", SwingConstants.CENTER);
         title.setBounds(20, 20, 360, 40);
         title.setFont(new Font("Segoe UI", Font.BOLD, 25));
@@ -268,69 +249,47 @@ public class LoginScreen extends JFrame {
         subtitle.setForeground(subText);
         card.add(subtitle);
 
-        // EMAIL
         JLabel emailLabel = new JLabel("Email");
         emailLabel.setBounds(40, 105, 300, 20);
-        emailLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         emailLabel.setForeground(subText);
         card.add(emailLabel);
 
         JTextField email = new JTextField();
         email.setBounds(40, 130, 320, 45);
-        email.setFont(new Font("Segoe UI", Font.PLAIN, 19));
         email.setBackground(new Color(255, 255, 255, 220));
         email.setForeground(Color.BLACK);
-        email.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
         card.add(email);
 
-        // PASSWORD
         JLabel passLabel = new JLabel("Password");
         passLabel.setBounds(40, 185, 300, 20);
-        passLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         passLabel.setForeground(subText);
         card.add(passLabel);
 
         JPasswordField pass = new JPasswordField();
         pass.setBounds(40, 210, 320, 45);
-        pass.setFont(new Font("Segoe UI", Font.PLAIN, 19));
-        pass.setBackground(new Color(255, 255, 255, 220));	
+        pass.setBackground(new Color(255,255,255,220));
         pass.setForeground(Color.BLACK);
-        pass.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
         card.add(pass);
 
-        // REGISTER BUTTON
         JButton createBtn = new JButton("Create Account");
         createBtn.setBounds(40, 275, 320, 50);
-        createBtn.setFocusPainted(false);
         createBtn.setBackground(accent);
-        createBtn.setFont(new Font("Segoe UI", Font.BOLD, 18));
         createBtn.setForeground(Color.WHITE);
-        createBtn.setBorder(BorderFactory.createLineBorder(new Color(255,255,255,120), 2, true));
+        card.add(createBtn);
 
         createBtn.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { createBtn.setBackground(hover); }
-            @Override public void mouseExited(MouseEvent e) { createBtn.setBackground(accent); }
+            public void mouseEntered(MouseEvent e){ createBtn.setBackground(hover); }
+            public void mouseExited(MouseEvent e){ createBtn.setBackground(accent); }
         });
-
-        card.add(createBtn);
 
         createBtn.addActionListener(e -> {
             String em = email.getText().trim();
             String pw = new String(pass.getPassword()).trim();
 
-            if (em.isEmpty() || pw.isEmpty()) {
+            if(em.isEmpty() || pw.isEmpty()){
                 JOptionPane.showMessageDialog(dialog, "Fields cannot be empty!");
                 return;
             }
-            if (!em.endsWith("@gmail.com")) {
-            	JOptionPane.showMessageDialog(
-                        this,
-                        "Only Gmail accounts (@gmail.com) are allowed to register!",
-                        "Warning",
-                        JOptionPane.WARNING_MESSAGE);
-            	return; 
-            }
-
 
             try {
                 PreparedStatement ps = connection.prepareStatement(
@@ -338,14 +297,10 @@ public class LoginScreen extends JFrame {
                 ps.setString(1, em);
                 ps.setString(2, pw);
                 ps.executeUpdate();
-
                 JOptionPane.showMessageDialog(dialog, "✅ Account Created Successfully!");
                 dialog.dispose();
-
-            } catch (SQLIntegrityConstraintViolationException ex) {
+            } catch (SQLException ex){
                 JOptionPane.showMessageDialog(dialog, "⚠️ Email already registered!");
-            } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(dialog, "DB Error: " + ex.getMessage());
             }
         });
 
@@ -354,17 +309,10 @@ public class LoginScreen extends JFrame {
 
     private void openMainApp(String username) {
         dispose();
-        new TossUI().setVisible(true);
+        new TossUI(username).setVisible(true);
     }
 
     public static void main(String[] args) {
-    	System.setProperty("apple.laf.useScreenMenuBar", "true");
-    	System.setProperty("swing.defaultlaf", "javax.swing.plaf.nimbus.NimbusLookAndFeel");
-    	try {
-    	    UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
-    	} catch (Exception e) {
-    	    e.printStackTrace();
-    	}
         SwingUtilities.invokeLater(LoginScreen::new);
     }
 }
