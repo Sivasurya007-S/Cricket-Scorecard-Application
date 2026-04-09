@@ -12,6 +12,12 @@ public class TossUI extends JFrame {
     private static final String DB_USER = "root";
     private static final String DB_PASS = "dinesh007";
 
+    // ✅ Constructor for LoginScreen compatibility
+    public TossUI(String username) {
+        this(); // call the default constructor; keeps all logic intact
+    }
+
+    // Existing no-argument constructor (all UI & logic inside)
     public TossUI() {
 
         setTitle("🏏 Toss Settings");
@@ -259,13 +265,11 @@ public class TossUI extends JFrame {
     }
 
     public static void main(String[] args) {
-    	System.setProperty("apple.laf.useScreenMenuBar", "true");
-    	System.setProperty("swing.defaultlaf", "javax.swing.plaf.nimbus.NimbusLookAndFeel");
-    	try {
-    	    UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
-    	} catch (Exception e) {
-    	    e.printStackTrace();
-    	}
+        System.setProperty("apple.laf.useScreenMenuBar", "true");
+        System.setProperty("swing.defaultlaf", "javax.swing.plaf.nimbus.NimbusLookAndFeel");
+        try {
+            UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
+        } catch (Exception e) { e.printStackTrace(); }
 
         SwingUtilities.invokeLater(TossUI::new);
     }
