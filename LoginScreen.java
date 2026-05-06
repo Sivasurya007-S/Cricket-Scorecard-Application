@@ -24,18 +24,19 @@ public class LoginScreen extends JFrame {
         setLocationRelativeTo(null);
 
         // --------- THEME COLORS (from old page) ----------
-        Color gradientTop    = new Color(12, 24, 60);
+        Color gradientTop = new Color(12, 24, 60);
         Color gradientBottom = new Color(26, 64, 160);
-        Color glassBg        = new Color(255, 255, 255,26);
-        Color glassStroke    = new Color(255, 255, 255, 80);
-        Color accent         = new Color(52, 92, 255);
-        Color hover          = new Color(85, 133, 255);
-        Color textMain       = Color.WHITE;
-        Color subText        = new Color(185, 205 , 225);
+        Color glassBg = new Color(255, 255, 255, 26);
+        Color glassStroke = new Color(255, 255, 255, 80);
+        Color accent = new Color(52, 92, 255);
+        Color hover = new Color(85, 133, 255);
+        Color textMain = Color.WHITE;
+        Color subText = new Color(185, 205, 225);
 
         // Gradient root panel
         JPanel root = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
@@ -49,7 +50,8 @@ public class LoginScreen extends JFrame {
 
         // Glass card
         JPanel card = new JPanel(null) {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -63,11 +65,12 @@ public class LoginScreen extends JFrame {
             }
         };
         card.setOpaque(false);
-        card.setPreferredSize(new Dimension(420, 620));
+        card.setPreferredSize(new Dimension(420, 680));
         card.setBorder(new EmptyBorder(20, 20, 20, 20));
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
         root.add(card, gbc);
 
         // ----------- HEADER -----------
@@ -122,9 +125,13 @@ public class LoginScreen extends JFrame {
         guestBtn.setBounds(40, 395, 340, 50);
         card.add(guestBtn);
 
-        JButton registerBtn = button("Create Account", new Color(34,139,34), new Color(45,180,45));
+        JButton registerBtn = button("Create Account", new Color(34, 139, 34), new Color(45, 180, 45));
         registerBtn.setBounds(40, 460, 340, 50);
         card.add(registerBtn);
+
+        JButton futureAnalysisBtn = button("Future Analysis", new Color(138, 43, 226), new Color(153, 50, 204));
+        futureAnalysisBtn.setBounds(40, 525, 340, 50);
+        card.add(futureAnalysisBtn);
 
         connectDatabase();
 
@@ -132,6 +139,10 @@ public class LoginScreen extends JFrame {
         loginBtn.addActionListener(e -> handleLogin());
         guestBtn.addActionListener(e -> openMainApp("Guest"));
         registerBtn.addActionListener(e -> showRegisterDialog());
+        futureAnalysisBtn.addActionListener(e -> {
+            DB.init(); // ensuring db initialized first
+            new FutureAnalysisUI().setVisible(true);
+        });
 
         setVisible(true);
     }
@@ -143,11 +154,16 @@ public class LoginScreen extends JFrame {
         b.setBackground(base);
         b.setForeground(Color.WHITE);
         b.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        b.setBorder(BorderFactory.createLineBorder(new Color(255,255,255,120), 2, true));
+        b.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 120), 2, true));
 
         b.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { b.setBackground(hover); }
-            public void mouseExited(MouseEvent e) { b.setBackground(base); }
+            public void mouseEntered(MouseEvent e) {
+                b.setBackground(hover);
+            }
+
+            public void mouseExited(MouseEvent e) {
+                b.setBackground(base);
+            }
         });
 
         return b;
@@ -155,7 +171,7 @@ public class LoginScreen extends JFrame {
 
     private void createUsersTable() {
         try (Connection conn = DB.get();
-             Statement stmt = conn.createStatement()) {
+                Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("CREATE TABLE IF NOT EXISTS users (" +
                     "email TEXT PRIMARY KEY, password TEXT)");
         } catch (Exception e) {
@@ -174,7 +190,7 @@ public class LoginScreen extends JFrame {
 
     private void handleLogin() {
         String email = emailField.getText().trim();
-        String pass  = new String(passwordField.getPassword());
+        String pass = new String(passwordField.getPassword());
 
         if (email.isEmpty() || pass.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Enter Email & Password");
@@ -188,8 +204,10 @@ public class LoginScreen extends JFrame {
             ps.setString(2, pass);
 
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) openMainApp(email);
-            else JOptionPane.showMessageDialog(this, "Invalid login");
+            if (rs.next())
+                openMainApp(email);
+            else
+                JOptionPane.showMessageDialog(this, "Invalid login");
 
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "DB Error: " + e.getMessage());
@@ -202,16 +220,17 @@ public class LoginScreen extends JFrame {
         dialog.setLocationRelativeTo(this);
 
         // ---------- PANEL WITH OLD COLORS ----------
-        Color gradientTop    = new Color(12, 24, 60);
+        Color gradientTop = new Color(12, 24, 60);
         Color gradientBottom = new Color(26, 64, 160);
-        Color glassBg        = new Color(255, 255, 255,26);
-        Color glassStroke    = new Color(255, 255, 255, 80);
-        Color subText        = new Color(185, 205 , 225);
-        Color accent         = new Color(52, 92, 255);
-        Color hover          = new Color(85, 133, 255);
+        Color glassBg = new Color(255, 255, 255, 26);
+        Color glassStroke = new Color(255, 255, 255, 80);
+        Color subText = new Color(185, 205, 225);
+        Color accent = new Color(52, 92, 255);
+        Color hover = new Color(85, 133, 255);
 
         JPanel root = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setPaint(new GradientPaint(0, 0, gradientTop, 0, getHeight(), gradientBottom));
@@ -222,18 +241,19 @@ public class LoginScreen extends JFrame {
         dialog.add(root);
 
         JPanel card = new JPanel(null) {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setColor(glassBg);
-                g2.fillRoundRect(0,0,getWidth(),getHeight(),26,26);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 26, 26);
                 g2.setStroke(new BasicStroke(2f));
                 g2.setColor(glassStroke);
-                g2.drawRoundRect(1,1,getWidth()-2,getHeight()-2,22,22);
+                g2.drawRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 22, 22);
             }
         };
         card.setOpaque(false);
-        card.setPreferredSize(new Dimension(400,350));
+        card.setPreferredSize(new Dimension(400, 350));
         root.add(card, new GridBagConstraints());
 
         // HEADER
@@ -267,7 +287,7 @@ public class LoginScreen extends JFrame {
 
         JPasswordField pass = new JPasswordField();
         pass.setBounds(40, 210, 320, 45);
-        pass.setBackground(new Color(255,255,255,220));
+        pass.setBackground(new Color(255, 255, 255, 220));
         pass.setForeground(Color.BLACK);
         card.add(pass);
 
@@ -278,15 +298,20 @@ public class LoginScreen extends JFrame {
         card.add(createBtn);
 
         createBtn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e){ createBtn.setBackground(hover); }
-            public void mouseExited(MouseEvent e){ createBtn.setBackground(accent); }
+            public void mouseEntered(MouseEvent e) {
+                createBtn.setBackground(hover);
+            }
+
+            public void mouseExited(MouseEvent e) {
+                createBtn.setBackground(accent);
+            }
         });
 
         createBtn.addActionListener(e -> {
             String em = email.getText().trim();
             String pw = new String(pass.getPassword()).trim();
 
-            if(em.isEmpty() || pw.isEmpty()){
+            if (em.isEmpty() || pw.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Fields cannot be empty!");
                 return;
             }
@@ -299,7 +324,7 @@ public class LoginScreen extends JFrame {
                 ps.executeUpdate();
                 JOptionPane.showMessageDialog(dialog, "✅ Account Created Successfully!");
                 dialog.dispose();
-            } catch (SQLException ex){
+            } catch (SQLException ex) {
                 JOptionPane.showMessageDialog(dialog, "⚠️ Email already registered!");
             }
         });
