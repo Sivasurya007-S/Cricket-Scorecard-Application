@@ -14,10 +14,6 @@ import java.sql.*;
  */
 public class OpeningPlayersUI extends JFrame {
 
-    private static final String DB_URL  = "jdbc:mysql://localhost:3306/cricket_app?useSSL=false&serverTimezone=UTC";
-    private static final String DB_USER = "root";
-    private static final String DB_PASS = "dinesh007";
-
     private TossRow toss;           // latest toss row
     private boolean firstInnings;   // true if first innings
     private String battingTeam;     // team displayed in header
@@ -228,7 +224,7 @@ public class OpeningPlayersUI extends JFrame {
 
     private TossRow fetchLatestToss() {
         TossRow row = new TossRow();
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
+        try (Connection conn = DB.get()) {
             String sql = "SELECT team1, team2, toss_winner, opted, overs FROM toss_details ORDER BY id DESC LIMIT 1";
             ResultSet rs = conn.createStatement().executeQuery(sql);
             if (rs.next()) {
@@ -236,7 +232,9 @@ public class OpeningPlayersUI extends JFrame {
                 row.team2 = rs.getString("team2");
                 row.tossWinner = rs.getString("toss_winner");
                 row.opted = rs.getString("opted");
-                row.overs = rs.getInt("overs");
+                String oversStr = rs.getString("overs");
+                try { row.overs = Integer.parseInt(oversStr != null ? oversStr.trim() : "0"); }
+                catch (NumberFormatException ex) { row.overs = 0; }
             } else {
                 // safe defaults if row missing
                 row.team1 = "Team 1";
