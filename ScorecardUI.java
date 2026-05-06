@@ -119,6 +119,49 @@ public class ScorecardUI extends JFrame {
         fillBowlingTable(bowlTable, inningsNo);
         root.add(wrapCard(bowlTable, 230));
 
+        // Match Prediction Panel
+        int totalOvers = getTotalOvers();
+        int totalBalls = totalOvers * 6;
+        int target = inningsNo == 2 ? getTotalRuns(1) + 1 : 0;
+        int ballsPlayed = getLegalBalls(inningsNo);
+        String predText = "";
+        
+        if (inningsNo == 1) {
+            double projScore = (ballsPlayed == 0) ? 0 : ((double)totalRuns / ballsPlayed) * totalBalls;
+            double diff = projScore - (totalOvers * 8);
+            double winProb = 50.0 + (diff * 0.2) - (wkts * 3.0);
+            if (winProb > 95) winProb = 95;
+            if (winProb < 5) winProb = 5;
+            predText = String.format("Predictor: %s %.0f%% | %s %.0f%%", getTeamName(1), winProb, getTeamName(2), 100 - winProb);
+        } else {
+            if (totalRuns >= target) predText = "Predictor: " + getTeamName(2) + " Won";
+            else {
+                int runsNeeded = target - totalRuns;
+                int ballsLeft = totalBalls - ballsPlayed;
+                if (ballsLeft <= 0) predText = "Predictor: " + getTeamName(1) + " Won";
+                else {
+                    double rrr = ((double)runsNeeded / ballsLeft) * 6.0;
+                    double crr = (ballsPlayed == 0) ? 0 : ((double)totalRuns / ballsPlayed) * 6.0;
+                    double winProbBat = 50.0 + ((crr - rrr) * 5.0) + ((10 - wkts) * 2.5);
+                    if (winProbBat > 95) winProbBat = 95;
+                    if (winProbBat < 5) winProbBat = 5;
+                    predText = String.format("Predictor: %s %.0f%% | %s %.0f%%", getTeamName(2), winProbBat, getTeamName(1), 100 - winProbBat);
+                }
+            }
+        }
+        
+        JLabel predLbl = boldLabel(predText);
+        predLbl.setForeground(new Color(255, 223, 0));
+        predLbl.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        JPanel predPanel = new JPanel(new BorderLayout());
+        predPanel.setBackground(CARD);
+        predPanel.setBorder(new EmptyBorder(12, 12, 12, 12));
+        predPanel.add(predLbl, BorderLayout.CENTER);
+        
+        root.add(gap(12));
+        root.add(predPanel);
+
         root.add(Box.createVerticalGlue());
         return root;
     }
@@ -331,7 +374,7 @@ public class ScorecardUI extends JFrame {
         String sql = """
             SELECT b.player, b.runs, b.balls, b.fours, b.sixes, b.out_desc
             FROM batting_scorecard b
-            WHERE b.innings_no = ?
+            WHERE b.match_id = ? AND b.innings_no = ?
               AND b.player IN (
                     SELECT DISTINCT batsman
                     FROM ball_by_ball
@@ -341,9 +384,10 @@ public class ScorecardUI extends JFrame {
         """;
 
         try (Connection c = DB.get(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, inningsNo);
-            ps.setInt(2, MatchContext.sessionId);
-            ps.setInt(3, inningsNo);
+            ps.setInt(1, MatchContext.sessionId);
+            ps.setInt(2, inningsNo);
+            ps.setInt(3, MatchContext.sessionId);
+            ps.setInt(4, inningsNo);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 String name = rs.getString(1);
@@ -451,7 +495,7 @@ public class ScorecardUI extends JFrame {
         String sql = """
             SELECT bw.bowler, bw.balls, bw.maidens, bw.runs, bw.wickets
             FROM bowling_scorecard bw
-            WHERE bw.innings_no = ?
+            WHERE bw.match_id = ? AND bw.innings_no = ?
               AND bw.bowler IN (
                     SELECT DISTINCT bowler
                     FROM ball_by_ball
@@ -461,9 +505,10 @@ public class ScorecardUI extends JFrame {
         """;
 
         try (Connection c = DB.get(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, inningsNo);
-            ps.setInt(2, MatchContext.sessionId);
-            ps.setInt(3, inningsNo);
+            ps.setInt(1, MatchContext.sessionId);
+            ps.setInt(2, inningsNo);
+            ps.setInt(3, MatchContext.sessionId);
+            ps.setInt(4, inningsNo);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 String bowler = rs.getString(1);
@@ -570,6 +615,27 @@ public class ScorecardUI extends JFrame {
             toast("Overs failed: " + e.getMessage());
         }
         return toOvers(balls);
+    }
+
+    private int getLegalBalls(int inningsNo) {
+        String sql = "SELECT COUNT(*) FROM ball_by_ball WHERE match_id=? AND innings_number=? AND extra_type IS NULL";
+        try (Connection c = DB.get(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, MatchContext.sessionId);
+            ps.setInt(2, inningsNo);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException ignored) {}
+        return 0;
+    }
+
+    private int getTotalOvers() {
+        String sql = "SELECT overs FROM match_session WHERE id = ?";
+        try (Connection c = DB.get(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, MatchContext.sessionId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException ignored) {}
+        return 20; // fallback
     }
 
     private String buildFOW(int inningsNo) {
