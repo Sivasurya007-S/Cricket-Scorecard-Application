@@ -8,24 +8,25 @@ import java.sql.*;
 
 public class TossUI extends JFrame {
 
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/cricket_app?useSSL=false&serverTimezone=UTC";
-    private static final String DB_USER = "root";
-    private static final String DB_PASS = "dinesh007";
+    private String username;
 
-    // ✅ Constructor for LoginScreen compatibility
     public TossUI(String username) {
-        this(); // call the default constructor; keeps all logic intact
+        this.username = username;
+        initUI();
     }
 
-    // Existing no-argument constructor (all UI & logic inside)
     public TossUI() {
+        this.username = "Guest";
+        initUI();
+    }
+
+    private void initUI() {
 
         setTitle("🏏 Toss Settings");
-        setSize(550, 800);
+        setSize(550, 850);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        // ---------- PREMIUM BLUE ROYALE THEME ----------
         Color gradTop = new Color(12, 24, 60);
         Color gradBottom = new Color(26, 64, 160);
 
@@ -35,7 +36,6 @@ public class TossUI extends JFrame {
         Color accent = new Color(52, 92, 255);
         Color hover = new Color(85, 133, 255);
         Color white = Color.WHITE;
-
         Color labelColor = new Color(185, 205, 255);
 
         JPanel root = new JPanel() {
@@ -50,7 +50,6 @@ public class TossUI extends JFrame {
         root.setLayout(new GridBagLayout());
         add(root);
 
-        // GLASS CARD
         JPanel card = new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -64,71 +63,96 @@ public class TossUI extends JFrame {
             }
         };
         card.setOpaque(false);
-        card.setPreferredSize(new Dimension(420, 650));
+        card.setPreferredSize(new Dimension(420, 720));
+        root.add(card);
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0; gbc.gridy = 0;
-        root.add(card, gbc);
-
-        // HEADER
         JLabel header = new JLabel("🏏 Toss Settings", SwingConstants.CENTER);
         header.setBounds(30, 30, 360, 50);
         header.setFont(new Font("Segoe UI", Font.BOLD, 27));
         header.setForeground(white);
         card.add(header);
 
+        JLabel userLabel = new JLabel("Welcome, " + username + "!", SwingConstants.CENTER);
+        userLabel.setBounds(30, 80, 360, 25);
+        userLabel.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+        userLabel.setForeground(labelColor);
+        card.add(userLabel);
+
         JLabel sub = new JLabel("Configure match toss details", SwingConstants.CENTER);
-        sub.setBounds(30, 70, 360, 20);
+        sub.setBounds(30, 110, 360, 20);
         sub.setFont(new Font("Segoe UI", Font.PLAIN, 16));
         sub.setForeground(labelColor);
         card.add(sub);
 
         JLabel team1Label = sectionLabel("Team 1 Name:", labelColor);
-        team1Label.setBounds(50, 120, 200, 30);
+        team1Label.setBounds(50, 150, 200, 30);
         card.add(team1Label);
 
         JTextField team1Field = inputField("Team 1");
-        team1Field.setBounds(50, 150, 320, 46);
+        team1Field.setBounds(50, 180, 320, 46);
         card.add(team1Field);
 
         JLabel team2Label = sectionLabel("Team 2 Name:", labelColor);
-        team2Label.setBounds(50, 210, 200, 30);
+        team2Label.setBounds(50, 240, 200, 30);
         card.add(team2Label);
 
         JTextField team2Field = inputField("Team 2");
-        team2Field.setBounds(50, 240, 320, 46);
+        team2Field.setBounds(50, 270, 320, 46);
         card.add(team2Field);
 
-        JLabel tossLabel = sectionLabel("Toss won by:", labelColor);
-        tossLabel.setBounds(50, 300, 200, 30);
+        // 🔥 REAL TOSS SYSTEM
+
+        JLabel tossLabel = sectionLabel("Choose Heads or Tails:", labelColor);
+        tossLabel.setBounds(50, 330, 250, 30);
         card.add(tossLabel);
 
-        JRadioButton r1 = radio("Team 1");
-        JRadioButton r2 = radio("Team 2");
-        r1.setSelected(true);
+        JRadioButton heads = radio("Heads");
+        JRadioButton tails = radio("Tails");
+        heads.setSelected(true);
 
-        ButtonGroup g1 = new ButtonGroup();
-        g1.add(r1); g1.add(r2);
+        ButtonGroup tossChoiceGroup = new ButtonGroup();
+        tossChoiceGroup.add(heads);
+        tossChoiceGroup.add(tails);
 
-        JPanel tossPanel = radioRow(r1, r2);
-        tossPanel.setBounds(50, 335, 320, 40);
-        card.add(tossPanel);
+        JPanel tossChoicePanel = radioRow(heads, tails);
+        tossChoicePanel.setBounds(50, 365, 320, 40);
+        card.add(tossChoicePanel);
 
-        // AUTO UPDATE TEAM NAMES
-        DocumentListener updater = new DocumentListener() {
-            public void changedUpdate(DocumentEvent e) { update(); }
-            public void removeUpdate(DocumentEvent e) { update(); }
-            public void insertUpdate(DocumentEvent e) { update(); }
-            private void update() {
-                r1.setText(team1Field.getText().isBlank() ? "Team 1" : team1Field.getText());
-                r2.setText(team2Field.getText().isBlank() ? "Team 2" : team2Field.getText());
+        JLabel tossResultLabel = new JLabel("Click Toss to play!", SwingConstants.CENTER);
+        tossResultLabel.setBounds(50, 405, 320, 30);
+        tossResultLabel.setForeground(Color.WHITE);
+        tossResultLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        card.add(tossResultLabel);
+
+        JButton tossBtn = mainButton("Flip Coin 🪙", accent, hover);
+        tossBtn.setBounds(50, 440, 320, 45);
+        card.add(tossBtn);
+
+        final String[] tossWinnerHolder = new String[1];
+
+        tossBtn.addActionListener(e -> {
+            String t1 = team1Field.getText().trim();
+            String t2 = team2Field.getText().trim();
+
+            if (t1.isBlank() || t2.isBlank()) {
+                tossResultLabel.setText("Enter team names first!");
+                return;
             }
-        };
-        team1Field.getDocument().addDocumentListener(updater);
-        team2Field.getDocument().addDocumentListener(updater);
+
+            String result = Math.random() < 0.5 ? "Heads" : "Tails";
+            String userChoice = heads.isSelected() ? "Heads" : "Tails";
+
+            if (result.equals(userChoice)) {
+                tossWinnerHolder[0] = t1;
+            } else {
+                tossWinnerHolder[0] = t2;
+            }
+
+            tossResultLabel.setText("Result: " + result + " → " + tossWinnerHolder[0] + " won!");
+        });
 
         JLabel optLabel = sectionLabel("Opted to:", labelColor);
-        optLabel.setBounds(50, 390, 200, 30);
+        optLabel.setBounds(50, 500, 200, 30);
         card.add(optLabel);
 
         JRadioButton bat = radio("Bat");
@@ -139,35 +163,31 @@ public class TossUI extends JFrame {
         g2.add(bat); g2.add(bowl);
 
         JPanel optPanel = radioRow(bat, bowl);
-        optPanel.setBounds(50, 425, 320, 40);
+        optPanel.setBounds(50, 535, 320, 40);
         card.add(optPanel);
 
         JLabel oversLabel = sectionLabel("Overs:", labelColor);
-        oversLabel.setBounds(50, 480, 200, 30);
+        oversLabel.setBounds(50, 580, 200, 30);
         card.add(oversLabel);
 
         JTextField oversField = inputField("Enter number of overs");
-        oversField.setBounds(50, 510, 320, 46);
+        oversField.setBounds(50, 610, 320, 46);
         card.add(oversField);
 
         JButton startBtn = mainButton("Start Match", accent, hover);
-        startBtn.setBounds(50, 580, 320, 55);
+        startBtn.setBounds(50, 670, 320, 55);
         card.add(startBtn);
 
-        // ✅ START MATCH ACTION (sessionId added)
         startBtn.addActionListener(e -> {
             String t1 = team1Field.getText().trim();
             String t2 = team2Field.getText().trim();
-            String tossWinner = r1.isSelected() ? t1 : t2;
+            String tossWinner = tossWinnerHolder[0];
             String opted = bat.isSelected() ? "Bat" : "Bowl";
             String overs = oversField.getText().trim();
 
-            if (t1.isBlank() || t2.isBlank() || overs.isBlank()) return;
+            if (t1.isBlank() || t2.isBlank() || overs.isBlank() || tossWinner == null) return;
 
-            // ✅ NEW: Create match session ID
             MatchContext.sessionId = getNewSessionId();
-
-            // ✅ Save toss (same as before)
             save(t1, t2, tossWinner, opted, overs);
 
             dispose();
@@ -177,17 +197,30 @@ public class TossUI extends JFrame {
         setVisible(true);
     }
 
-    // ✅ NEW — Generate a new session ID based on ball_by_ball table
     private int getNewSessionId() {
-        try (Connection c = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+        try (Connection c = DB.get();
              Statement st = c.createStatement();
              ResultSet rs = st.executeQuery("SELECT COALESCE(MAX(match_id),0) + 1 FROM ball_by_ball")) {
-
             if (rs.next()) return rs.getInt(1);
-
-        } catch (Exception ignored) {}
-
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return (int) (System.currentTimeMillis() / 1000L);
+    }
+
+    private void save(String t1, String t2, String toss, String opted, String overs) {
+        try (Connection c = DB.get()) {
+            PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO toss_details(team1,team2,toss_winner,opted,overs) VALUES(?,?,?,?,?)");
+            ps.setString(1, t1);
+            ps.setString(2, t2);
+            ps.setString(3, toss);
+            ps.setString(4, opted);
+            ps.setString(5, overs);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private JLabel sectionLabel(String text, Color color) {
@@ -249,28 +282,5 @@ public class TossUI extends JFrame {
             public void mouseExited(java.awt.event.MouseEvent e) { btn.setBackground(normal); }
         });
         return btn;
-    }
-
-    private void save(String t1, String t2, String toss, String opted, String overs) {
-        try (Connection c = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
-            PreparedStatement ps = c.prepareStatement(
-                    "INSERT INTO toss_details(team1,team2,toss_winner,opted,overs) VALUES(?,?,?,?,?)");
-            ps.setString(1, t1);
-            ps.setString(2, t2);
-            ps.setString(3, toss);
-            ps.setString(4, opted);
-            ps.setString(5, overs);
-            ps.executeUpdate();
-        } catch (Exception ignored) {}
-    }
-
-    public static void main(String[] args) {
-        System.setProperty("apple.laf.useScreenMenuBar", "true");
-        System.setProperty("swing.defaultlaf", "javax.swing.plaf.nimbus.NimbusLookAndFeel");
-        try {
-            UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
-        } catch (Exception e) { e.printStackTrace(); }
-
-        SwingUtilities.invokeLater(TossUI::new);
     }
 }
